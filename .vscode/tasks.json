@@ -1,0 +1,88 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build (debug)",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-g",
+                "-D VK_DEBUG",
+                "-Wall",
+                "-Wextra",
+                "-Wdisabled-optimization",
+                "src/*.cpp",
+                "-o",
+                "${workspaceFolder}/bin/VKEngineDEBUG.x86_64",
+                "-lSDL2",
+                "-lvulkan"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "-O3",
+                "-g",
+                "src/*.cpp",
+                "-lSDL2",
+                "-lvulkan",
+                "-o",
+                "${workspaceFolder}/bin/VKEngine.x86_64"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "silent"
+            },
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "build executable",
+            "type": "shell",
+            "command": "chmod",
+            "args": [
+                "a+x",
+                "bin/VKEngine.x86_64"
+            ],
+            "dependsOn": [
+                "build"
+            ]
+        },
+        {
+            "label": "build executable and set script",
+            "type": "shell",
+            "command": "chmod",
+            "args": [
+                "a+x",
+                "VKEngine.sh"
+            ],
+            "dependsOn": [
+                "build executable"
+            ]
+        },
+        {
+            "type": "shell",
+            "label": "clang build active file",
+            "command": "/usr/bin/clang",
+            "args": [
+                "-g",
+                "${file}",
+                "-o",
+                "${fileDirname}/${fileBasenameNoExtension}"
+            ],
+            "options": {
+                "cwd": "/usr/bin"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        }
+    ]
+}
