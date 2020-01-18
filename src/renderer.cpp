@@ -132,13 +132,13 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 			prompt.append("\n    Current device: ").append(std::to_string(current_index));
 #endif
 			const SDL_MessageBoxData mbdata = {
-				SDL_MESSAGEBOX_INFORMATION,				/* .flags */
+				SDL_MESSAGEBOX_INFORMATION,			/* .flags */
 				NULL,							/* .window */
 				"Vulkan device selector",				/* .title */
-				prompt.c_str(),						/* .message */
-				SDL_arraysize(buttons),					/* .numbuttons */
+				prompt.c_str(),					/* .message */
+				SDL_arraysize(buttons),				/* .numbuttons */
 				buttons,						/* .buttons */
-				nullptr							/* .colorScheme */
+				nullptr						/* .colorScheme */
 			};
 
 			SDL_ShowMessageBox(&mbdata, &b_id);
