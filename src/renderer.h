@@ -1,7 +1,6 @@
 #pragma once
 //Vulkan Header
 #include <vulkan/vulkan.hpp>
-#include <vma/vk_mem_alloc.h>
 //GLM
 #include <glm/glm.hpp>
 //SDL2
