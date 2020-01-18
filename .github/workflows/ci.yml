@@ -1,0 +1,16 @@
+name: Matrixed Linux Build
+on: [push]
+jobs:
+  linux:
+    strategy:
+      matrix:
+        os:      [ubuntu-latest]
+        target:  [linux]
+        variant: [Release, Debug]
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.target }} - ${{ matrix.variant }} on ${{ matrix.os }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v1
+      - name: Build ${{ matrix.variant }}
+        run: chmod 755 VkBuild${{ matrix.variant }}.sh && ./VkBuild${{ matrix.variant }}.sh
