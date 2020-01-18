@@ -113,8 +113,52 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 		 " Couldn't find a Vulkan-enabled GPU.\n Make sure your GPU is supported by Vulkan, and if so make sure a Vulkan-enabled driver is installed for your GPU.\n To check if your GPU is supported, please visit https://vulkan.gpuinfo.org/", NULL);
 		throw "No device found";
 	}
+	int device_select = 0;
+	if(physical_devices.size() > 1)
+	{
+		bool choice_done = false;
+		int b_id = 0;
+		int current_index = 0;
+		while(!choice_done)
+		{
+			const SDL_MessageBoxButtonData buttons[] = {
+				{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "Use this" },
+				{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 1, "Next" },
+			};
+			std::string prompt = "Do you want to use this device?\n\n";
+			prompt.append(physical_devices[current_index].getProperties().deviceName);
+#ifdef VK_DEBUG
+			prompt.append("\n\nDebug data\n    Device count  : ").append(std::to_string(physical_devices.size()));
+			prompt.append("\n    Current device: ").append(std::to_string(current_index));
+#endif
+			const SDL_MessageBoxData mbdata = {
+				SDL_MESSAGEBOX_INFORMATION,				/* .flags */
+				NULL,							/* .window */
+				"Vulkan device selector",				/* .title */
+				prompt.c_str(),						/* .message */
+				SDL_arraysize(buttons),					/* .numbuttons */
+				buttons,						/* .buttons */
+				nullptr							/* .colorScheme */
+			};
 
-	gpu = physical_devices[0];
+			SDL_ShowMessageBox(&mbdata, &b_id);
+
+			if(b_id == 0)
+			{
+				choice_done = true;
+				device_select = current_index;
+			}
+			else
+			{
+				current_index += 1;
+				if(current_index == physical_devices.size())
+				{
+					current_index = 0;
+				}
+			}
+		}
+	}
+	gpu = physical_devices[device_select];
 
 	//Array used for displaying the Vulkan device type to console
 	const char *device_type[5] = {
@@ -123,7 +167,7 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 		"VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU",
 		"VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU",
 		"VK_PHYSICAL_DEVICE_TYPE_CPU"
-		};
+	};
 
 	//Qeury GPU Info.
 	gpu_properties = gpu.getProperties();
