@@ -102,6 +102,8 @@ void VkRenderer::DestroyInstance()
 	instance.release();
 }
 
+#define MBOX_CHOICES_YEA 1
+#define MBOX_CHOICES_NAY 0
 
 void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 {
@@ -122,8 +124,8 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 		while(!choice_done)
 		{
 			const SDL_MessageBoxButtonData buttons[] = {
-				{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "Use this" },
-				{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 1, "Next" },
+				{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, MBOX_CHOICES_YEA, "Use this" },
+				{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, MBOX_CHOICES_NAY, "Next" },
 			};
 			std::string prompt = "Do you want to use this device?\n\n";
 			prompt.append(physical_devices[current_index].getProperties().deviceName);
@@ -143,7 +145,7 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 
 			SDL_ShowMessageBox(&mbdata, &b_id);
 
-			if(b_id == 0)
+			if(b_id == MBOX_CHOICES_YEA)
 			{
 				choice_done = true;
 				device_select = current_index;
