@@ -1,0 +1,18 @@
+name: Matrixed Linux Build
+on: [push]
+jobs:
+  linux:
+    strategy:
+      matrix:
+        os:      [ubuntu-latest]
+        target:  [linux]
+        variant: [Release, Debug]
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.target }} - ${{ matrix.variant }} on ${{ matrix.os }}
+    steps:
+      - name: Prep environment
+        run: sudo apt -y update && sudo apt -y install libvulkan-dev libsdl2-dev libglm-dev
+      - name: Check out source
+        uses: actions/checkout@v1
+      - name: Build ${{ matrix.variant }}
+        run: chmod 755 VkBuild${{ matrix.variant }}.sh && ./VkBuild${{ matrix.variant }}.sh
