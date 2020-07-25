@@ -15,7 +15,7 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 	SDL_Init(SDL_INIT_VIDEO);       //This activates a specific SDL2 subsystem  
 
 	//Forward Declerations
-	SDL_Event event;          //This is the handle for the Event Subsystem
+	SDL_Event event;          //This is the handle for the Event subsystem
 	SDL_Window * window;      //This is a handle for the Window
 	VkRenderer * renderer;    //This is a handle for the Renderer
 	WIDTH = 640, HEIGHT = 480;
@@ -208,7 +208,7 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 				last_time += 1.0;
 			}
 		}
-		// Frame Rate Calculations
+		// Framerate Calculations
 		float current_frame = SDL_GetTicks();
 		dt = (current_frame - last_frame) / 1000;
 		last_frame = current_frame;
@@ -239,7 +239,7 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 
 		 //Rendering Loop
 		 if (renderer->AcquireNextBuffer(i)) { //AcquireNextBuffer: acquires the next command buffer index, used for setting the render commands for the next swapchain.
-		 									  //It also returns whether the buffer is available or not, in which case that determines if the command buffer is filled
+		 									  //It also returns wether the buffer is available or not, in which case that determines if the command buffer is filled
 			 current_time = SDL_GetTicks()/1000;
 
 			 rotator += 0.001;

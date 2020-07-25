@@ -60,18 +60,64 @@ void VkRenderer::GetSDLWindowInfo(SDL_Window * window) //Get the necessary infor
 	SDL_Vulkan_GetDrawableSize(window, &render_width, &render_height);
 }
 
+void VkRenderer::GetExtraInstanceExtensions() //Get the necessary extra instance extentions needed for the renderer.
+{
+	// everything below this is just for simple testing, VK_KHR_get_surface_capabilities2 isn't used.
+	vector<vk::ExtensionProperties> extensions = vk::enumerateInstanceExtensionProperties();
+	int extension_check = 0;
+	for (auto extension : extensions){
+		string name = extension.extensionName;
+		if (name == "VK_KHR_get_surface_capabilities2"){
+			instance_extensions.push_back("VK_KHR_get_surface_capabilities2");
+			extension_check += 1;
+		}
+	}
+	if (extension_check != required_i_extensions){
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Vulkan Error", "Not all required extentions supported by the instance", NULL);
+		throw runtime_error("instance creation error");
+	}
+}
+
+int VkRenderer::GetExtraDeviceExtensions(vk::PhysicalDevice * gpu) //Get the necessary extra device extensions needed for the renderer.
+{
+	vector<vk::ExtensionProperties> extensions = gpu->enumerateDeviceExtensionProperties();
+	int extension_check = 0;
+	for (auto extension : extensions){
+		string extension_name = extension.extensionName;
+		if (extension_name == "VK_KHR_get_memory_requirements2"){
+			extension_check += 1;
+			if (supported_d_extensions < required_d_extensions){
+				supported_d_extensions += 1;
+				device_extensions.push_back("VK_KHR_get_memory_requirements2");
+			}	
+		}
+
+		if (extension_name == "VK_KHR_dedicated_allocation"){
+			extension_check += 1;
+			if (supported_d_extensions < required_d_extensions){
+				supported_d_extensions += 1;
+				device_extensions.push_back("VK_KHR_dedicated_allocation");
+			}	
+		}
+	}
+	if ((extension_check == supported_d_extensions) && (supported_d_extensions == required_d_extensions)){
+		return 1;
+	}
+	return 0;
+}
 
 void VkRenderer::InitInstance() //Initializes the Vulkan Instance
 {
 #ifdef VK_DEBUG
 	SetupDebug();
 #endif //add debug extentions
+	GetExtraInstanceExtensions();
 
 	auto app_info = vk::ApplicationInfo(
 		"Vulkan SDL2 Application",
 		VK_MAKE_VERSION(0, 2, 0),
 		"Hello Vulkan++",
-		VK_MAKE_VERSION(1, 1, 0)
+		VK_MAKE_VERSION(1, 0, 0)
 	);
 
 	instance = vk::createInstanceUnique(
@@ -89,6 +135,7 @@ void VkRenderer::InitInstance() //Initializes the Vulkan Instance
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Vulkan Error!", " Couldn't create instance.\n Make sure Vulkan driver is installed.", NULL);
 		throw "No instance created";
 	}
+
 
 #ifdef VK_DEBUG
 	InitDebug();
@@ -116,7 +163,22 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 		throw "No device found";
 	}
 	int device_select = 0;
-	if(physical_devices.size() > 1)
+
+	vector<vk::PhysicalDevice> selectable_devices = {};
+	for (int i = 0; i < int(physical_devices.size()); i++){
+		if (GetExtraDeviceExtensions(&physical_devices[i])){
+			selectable_devices.push_back(physical_devices[i]);
+		}
+	}
+
+	if (!selectable_devices.size()){
+		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Get Supported GPU Failed");
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Vulkan Error!",
+		 " Couldn't find a suitable GPU.\n Make sure your GPU is supported by Vulkan 1.1, and make sure you have a 1.1 enabled driver, or a driver with dedicated allocation support.", NULL);
+		throw "No device found";
+	}
+
+	if (selectable_devices.size() > 1)
 	{
 		bool choice_done = false;
 		int b_id = 0;
@@ -128,7 +190,7 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 				{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, MBOX_CHOICES_NAY, "Next" },
 			};
 			std::string prompt = "Do you want to use this device?\n\n";
-			prompt.append(physical_devices[current_index].getProperties().deviceName);
+			prompt.append(selectable_devices[current_index].getProperties().deviceName);
 #ifdef VK_DEBUG
 			prompt.append("\n\nDebug data\n    Device count  : ").append(std::to_string(physical_devices.size()));
 			prompt.append("\n    Current device: ").append(std::to_string(current_index));
@@ -145,7 +207,7 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 
 			SDL_ShowMessageBox(&mbdata, &b_id);
 
-			if(b_id == MBOX_CHOICES_YEA)
+			if (b_id == MBOX_CHOICES_YEA)
 			{
 				choice_done = true;
 				device_select = current_index;
@@ -153,14 +215,15 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 			else
 			{
 				current_index += 1;
-				if(current_index == physical_devices.size())
+				if (current_index == int(selectable_devices.size()))
 				{
 					current_index = 0;
 				}
 			}
 		}
 	}
-	gpu = physical_devices[device_select];
+
+	gpu = selectable_devices[device_select];
 
 	//Array used for displaying the Vulkan device type to console
 	const char *device_type[5] = {

@@ -2,6 +2,7 @@
 //Vulkan Header
 #include <vulkan/vulkan.hpp>
 //GLM
+#define GLM_FORCE_CTOR_INIT 
 #include <glm/glm.hpp>
 //SDL2
 #include <SDL2/SDL.h>
@@ -62,6 +63,9 @@ class VkRenderer
 
   private:
 	//__Variables__
+	int required_i_extensions = 1;
+	int required_d_extensions = 2;
+	int supported_d_extensions = 0;
 	map<string, vk::ShaderModule> shader_cache;
 	VkResult result;
 	vk::UniqueInstance instance;
@@ -85,10 +89,14 @@ class VkRenderer
 	vector<const char *> instance_layers{};
 	vector<const char *> instance_extensions{};
 
+	vk::DispatchLoaderDynamic dldid;
+
 	//Functions
 	void GetSDLWindowInfo(SDL_Window *window);
+	void GetExtraInstanceExtensions();
 	void InitInstance();
 	void DestroyInstance();
+	int GetExtraDeviceExtensions(vk::PhysicalDevice * gpu);
 	void CreateDeviceContext();
 	void DestroyDeviceContext();
 	void CreateSurface(SDL_Window *window);
