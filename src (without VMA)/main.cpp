@@ -15,9 +15,9 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 	SDL_Init(SDL_INIT_VIDEO);       //This activates a specific SDL2 subsystem  
 
 	//Forward Declerations
-	SDL_Event event;          //This is the handle for the event subsystem
-	SDL_Window * window;      //This is a handle for the window
-	VkRenderer * renderer;    //This is a handle for the renderer
+	SDL_Event event;          //This is the handle for the Event subsystem
+	SDL_Window * window;      //This is a handle for the Window
+	VkRenderer * renderer;    //This is a handle for the Renderer
 	WIDTH = 640, HEIGHT = 480;
 	bool running = true;
 
@@ -45,7 +45,7 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 		{{-0.5,  0.5f},{0.0f, 0.0f, 0.0f}},
 	};
 
-	auto triangle = new VertexBuffer(vertices, renderer);
+	auto triangle = new VertexBuffer(vertices, vk::SharingMode::eExclusive, renderer);
 
 	//Command Buffers
 	auto command_pool_info = vk::CommandPoolCreateInfo(

@@ -1,8 +1,6 @@
 #pragma once
 //Vulkan Header
 #include <vulkan/vulkan.hpp>
-//VMA
-#include "vk_mem_alloc.hpp"
 //GLM
 #define GLM_FORCE_CTOR_INIT 
 #include <glm/glm.hpp>
@@ -42,16 +40,6 @@ class VkRenderer
 	vk::PipelineMultisampleStateCreateInfo multisampler = vk::PipelineMultisampleStateCreateInfo();
 	int render_width, render_height;
 	vk::Rect2D render_area;
-	vma::Allocator gpu_allocator;
-	VkPhysicalDeviceProperties gpu_properties;
-	//Array used for displaying the Vulkan device type to console
-	const char *device_type[5] = {
-		"VK_PHYSICAL_DEVICE_TYPE_OTHER",
-		"VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU",
-		"VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU",
-		"VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU",
-		"VK_PHYSICAL_DEVICE_TYPE_CPU"
-	};
 	
 	//__Functions__
 	VkRenderer(SDL_Window * window);
@@ -88,6 +76,7 @@ class VkRenderer
 	vk::SurfaceFormatKHR surface_format;
 	vk::PhysicalDevice gpu;
 	vk::DeviceMemory device_memory;
+	VkPhysicalDeviceProperties gpu_properties;
 	vector<uint32_t> queue_family_indices;
 	vk::SwapchainKHR swapchain;
 	vk::SwapchainKHR old_swapchain = nullptr;
@@ -99,7 +88,7 @@ class VkRenderer
 	vector<const char *> device_extensions{};
 	vector<const char *> instance_layers{};
 	vector<const char *> instance_extensions{};
-	vma::Allocation depth_buffer_allocation;
+
 	vk::DispatchLoaderDynamic dldid;
 
 	//Functions
@@ -171,12 +160,11 @@ class VertexBuffer{
 	public:
 		vk::Buffer vertex_buffer;
 		vector<Vertex> verex_info;
-		vma::Allocator * allocator;
-		vk::Device * gpu;
+		vk::Device device;
 
-		VertexBuffer(vector<Vertex>, VkRenderer *);
+		VertexBuffer(vector<Vertex>, vk::SharingMode, VkRenderer *);
 		~VertexBuffer();
 	private:
 		vk::BufferCreateInfo buffer_info;
-		vma::Allocation buffer_memory;
+		vk::DeviceMemory buffer_memory;
 };

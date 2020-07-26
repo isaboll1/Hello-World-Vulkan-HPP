@@ -1,4 +1,3 @@
-#define VMA_IMPLEMENTATION
 #include "renderer.h"
 #ifdef _WIN32
 #pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
@@ -65,8 +64,6 @@ void VkRenderer::GetExtraInstanceExtensions() //Get the necessary extra instance
 {
 	// everything below this is just for simple testing, VK_KHR_get_surface_capabilities2 isn't used.
 	vector<vk::ExtensionProperties> extensions = vk::enumerateInstanceExtensionProperties();
-	required_i_extensions = 0;
-	/*
 	int extension_check = 0;
 	for (auto extension : extensions){
 		string name = extension.extensionName;
@@ -79,7 +76,6 @@ void VkRenderer::GetExtraInstanceExtensions() //Get the necessary extra instance
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Vulkan Error", "Not all required extentions supported by the instance", NULL);
 		throw runtime_error("instance creation error");
 	}
-	*/
 }
 
 int VkRenderer::GetExtraDeviceExtensions(vk::PhysicalDevice * gpu) //Get the necessary extra device extensions needed for the renderer.
@@ -178,7 +174,7 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 	if (!selectable_devices.size()){
 		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Get Supported GPU Failed");
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Vulkan Error!",
-		 " Couldn't find a suitable GPU.\n Make sure your GPU is supported by Vulkan 1.1 (or has dedicated allocation support).", NULL);
+		 " Couldn't find a suitable GPU.\n Make sure your GPU is supported by Vulkan 1.1, and make sure you have a 1.1 enabled driver, or a driver with dedicated allocation support.", NULL);
 		throw "No device found";
 	}
 
@@ -228,6 +224,15 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 	}
 
 	gpu = selectable_devices[device_select];
+
+	//Array used for displaying the Vulkan device type to console
+	const char *device_type[5] = {
+		"VK_PHYSICAL_DEVICE_TYPE_OTHER",
+		"VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU",
+		"VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU",
+		"VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU",
+		"VK_PHYSICAL_DEVICE_TYPE_CPU"
+	};
 
 	//Qeury GPU Info.
 	gpu_properties = gpu.getProperties();
@@ -282,19 +287,12 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 		&gpu_features
 	));
 	graphics_queue = device->getQueue(graphics_family_index, 0);
-	queue_family_indices.push_back(graphics_family_index);
 
-	//Create vulkan memory allocator.
-	gpu_allocator = vma::createAllocator(vma::AllocatorCreateInfo(
-		vma::AllocatorCreateFlags(vma::AllocatorCreateFlagBits::eKhrDedicatedAllocation),
-		gpu, 
-		device.get()
-	));
+	queue_family_indices.push_back(graphics_family_index);
 }
 
 void VkRenderer::DestroyDeviceContext()
 {
-	gpu_allocator.destroy();
 	device->destroy();
 	device.release();
 }
@@ -433,18 +431,36 @@ void VkRenderer::CreateDepthStencilImage(){ //Create the Depth and Stencil Buffe
 	if (depth_buffer_format != vk::Format::eUndefined)
 		stencil_support = true;
 
-	tie(depth_stencil_buffer, depth_buffer_allocation) = gpu_allocator.createImage(vk::ImageCreateInfo(
+	depth_stencil_buffer = device->createImage(vk::ImageCreateInfo(
 		vk::ImageCreateFlags(),vk::ImageType::e2D, depth_buffer_format,
 		vk::Extent3D(vk::Extent2D(render_width, render_height), 1), 1,
 		1, vk::SampleCountFlagBits::e1, vk::ImageTiling::eOptimal, 
 		vk::ImageUsageFlagBits::eDepthStencilAttachment, 
 		vk::SharingMode::eExclusive, queue_family_indices.size(), 
 		queue_family_indices.data(),
-		vk::ImageLayout::eUndefined),
-		vma::AllocationCreateInfo(
-			vma::AllocationCreateFlags(vma::AllocationCreateFlagBits::eDedicatedMemory))
+		vk::ImageLayout::eUndefined)
 	);
 
+	auto memory_req = device->getImageMemoryRequirements(depth_stencil_buffer); //Get the required information about memory for the buffer
+	uint32_t memory_index = UINT32_MAX; //Index of GPU memory Location
+	auto mem_properties = vk::MemoryPropertyFlagBits::eDeviceLocal; //Application controlled memory property (GPU local memory)
+	for (uint32_t i = 0; i < gpu_memory_info.memoryTypeCount; i++) {
+		if (memory_req.memoryTypeBits &(1 << i)) {
+			if ((gpu_memory_info.memoryTypes[i].propertyFlags & mem_properties) == mem_properties ) {
+				memory_index = i;
+				break;
+			}
+		}
+	}
+
+	SDL_assert(memory_index != UINT32_MAX);
+
+	device_memory = device->allocateMemory(
+		vk::MemoryAllocateInfo(memory_req.size, memory_index));
+
+	device->bindImageMemory(depth_stencil_buffer,
+		                    device_memory, 0);
+	
 	depth_stencil_buffer_view = device->createImageView(
 		vk::ImageViewCreateInfo(
 			vk::ImageViewCreateFlags(), depth_stencil_buffer,
@@ -454,12 +470,15 @@ void VkRenderer::CreateDepthStencilImage(){ //Create the Depth and Stencil Buffe
 				vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil,
 				0, 1, 0, 1)
 		));
+
 }
 
 void VkRenderer::DestroyDepthStencilImage(){
 	device->destroyImageView(depth_stencil_buffer_view);
-	gpu_allocator.destroyImage(depth_stencil_buffer, depth_buffer_allocation);
+	device->freeMemory(device_memory);
+	device->destroyImage(depth_stencil_buffer);
 }
+
 
 void VkRenderer::CreateRenderpass() {
 	vector<vk::AttachmentDescription> attachment_descriptions = //Render pass attachment descriptions (currently for the color pass and depth pass)
@@ -671,7 +690,7 @@ static vector<char> ReadShaderFile(string filename)
 
 	return buffer;
 }
-/* unneeded
+
 uint32_t FindMemoryType(VkRenderer * renderer, uint32_t type_filter, vk::MemoryPropertyFlags properties){
 	auto memory_properties = renderer->gpu_memory_info;
 	for (uint32_t i=0; i < memory_properties.memoryTypeCount; i++){
@@ -681,7 +700,7 @@ uint32_t FindMemoryType(VkRenderer * renderer, uint32_t type_filter, vk::MemoryP
 	}
 	throw "failed to find the most suitable memory type!";
 }
-*/
+
 vk::ShaderModule VkRenderer::LoadShaderModule(string filename) {
 	if (!shader_cache.count(filename)){
 		vector<char> binary = ReadShaderFile(filename);
@@ -792,30 +811,43 @@ void VkRenderer::DestroyDebug()
 //________________________________________________________________________________
 
 // VERTEX BUFFER CLASS____________________________________________________________
-VertexBuffer::VertexBuffer(vector<Vertex> vertices, VkRenderer * renderer){
-	allocator = &renderer->gpu_allocator;
-	gpu = &renderer->device.get();
-
+VertexBuffer::VertexBuffer(vector<Vertex> vertices, vk::SharingMode sharing_mode, VkRenderer * renderer){
+	device = renderer->device.get();
 	buffer_info = vk::BufferCreateInfo(
 		vk::BufferCreateFlags(), sizeof(vertices[0]) * vertices.size(),
 		vk::BufferUsageFlagBits::eVertexBuffer
 	);
 
-	vma::AllocationCreateInfo alloc_info = {};
-	alloc_info.usage = vma::MemoryUsage::eCpuToGpu;
-
-	tie(vertex_buffer, buffer_memory) = allocator->createBuffer(buffer_info, alloc_info);
+	device.createBuffer(&buffer_info, nullptr , &vertex_buffer);
 	
 	if (!vertex_buffer){
 		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Create Buffer Failed");
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Vulkan Error!", " Couldn't create Vertex Buffer.\n Make sure information is filled out correctly.", NULL);
 		throw "Vertex Buffer Creation Failed!";
 	}
-	void * data = allocator->mapMemory(buffer_memory);
+
+	auto memory_reqs = device.getBufferMemoryRequirements(vertex_buffer);
+	auto allocate_info = vk::MemoryAllocateInfo(
+		memory_reqs.size,
+		FindMemoryType(renderer, memory_reqs.memoryTypeBits,
+			vk::MemoryPropertyFlagBits::eHostVisible|vk::MemoryPropertyFlagBits::eHostCoherent
+		)
+	);
+	buffer_memory = device.allocateMemory(allocate_info, nullptr);
+	if (!buffer_memory){
+		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Create Buffer Failed");
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Vulkan Error!", " Couldn't create Vertex Buffer Memory.\n Make sure information is filled out correctly.", NULL);
+		throw "Memory not bound for Vertex Buffer!";
+	}
+	device.bindBufferMemory(vertex_buffer, buffer_memory, 0);
+
+	void * data;
+	device.mapMemory(buffer_memory, 0, buffer_info.size, vk::MemoryMapFlags(), &data);
 	memcpy(data, vertices.data(), (size_t)buffer_info.size);
-	allocator->unmapMemory(buffer_memory);
+	device.unmapMemory(buffer_memory);
 }
 
 VertexBuffer::~VertexBuffer(){
-	allocator->destroyBuffer(vertex_buffer, buffer_memory);
-}	
+	device.destroyBuffer(vertex_buffer);
+	device.freeMemory(buffer_memory);
+}
