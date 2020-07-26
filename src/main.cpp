@@ -48,18 +48,7 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 	auto triangle = new VertexBuffer(vertices, renderer);
 
 	//Command Buffers
-	auto command_pool_info = vk::CommandPoolCreateInfo(
-		vk::CommandPoolCreateFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer),
-		renderer->graphics_family_index);
-
-	auto command_pool = renderer->device->createCommandPool(command_pool_info);
-
-	auto command_buffers = renderer->device->allocateCommandBuffers(
-		vk::CommandBufferAllocateInfo(
-			command_pool,
-			vk::CommandBufferLevel::ePrimary,
-			renderer->buffer_count
-		));
+	auto command_buffers = renderer->GetCommandBuffers(vk::CommandBufferLevel::ePrimary, renderer->buffer_count);
 
 	uint32_t i = 0;
 
@@ -286,7 +275,6 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 	 }
 	renderer->device->waitIdle();
 	delete triangle;
-	renderer->device->destroyCommandPool(command_pool);
 	delete renderer;
 	SDL_DestroyWindow(window);
 	SDL_Quit();

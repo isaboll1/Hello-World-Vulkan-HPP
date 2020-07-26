@@ -24,6 +24,9 @@ VkRenderer::VkRenderer(SDL_Window * window)
 
 VkRenderer::~VkRenderer()
 {
+	if (command_pool){
+		DestroyDeviceCommandPool(&command_pool);
+	}
 	DestroyShaderModule();
 	DestroyPipelines();
 
@@ -495,7 +498,7 @@ void VkRenderer::CreateRenderpass() {
 	};
 
 	vector<vk::AttachmentReference> stencil_reference = {
-		vk::AttachmentReference(1, vk::ImageLayout::eColorAttachmentOptimal) // synonymous with (in glsl): layout(location = 0) out vec4 FinalColor
+		vk::AttachmentReference(1, vk::ImageLayout::eColorAttachmentOptimal) // synonymous with (in glsl): layout(location = 1) out vec4 FinalColor
 		//extra color attachments
 		//~extra color attachments
 	};
@@ -558,6 +561,32 @@ void VkRenderer::DestroyFramebuffers() {
 		device->destroyFramebuffer(buffer);
 }
 
+vk::CommandPool VkRenderer::CreateDeviceCommandPool(uint32_t index, vk::CommandPoolCreateFlagBits flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer){
+	
+	auto command_pool_info = vk::CommandPoolCreateInfo(
+	vk::CommandPoolCreateFlags(flags),
+	index);
+
+	return device->createCommandPool(command_pool_info);
+}
+
+vector<vk::CommandBuffer> VkRenderer::GetCommandBuffers(vk::CommandBufferLevel level, int buffer_count, vk::CommandPool pool){
+	if (!pool){
+		if (!command_pool){
+			command_pool = CreateDeviceCommandPool(graphics_family_index);
+		}
+		pool = command_pool;
+	}
+	return device->allocateCommandBuffers(vk::CommandBufferAllocateInfo(
+			pool,
+			level,
+			buffer_count
+		));
+}
+
+void VkRenderer::DestroyDeviceCommandPool(vk::CommandPool * pool){
+	device->destroyCommandPool(*pool);
+}
 
 void VkRenderer::CreateSynchronizations() {
 	present_semaphore = device->createSemaphore(vk::SemaphoreCreateInfo());
@@ -768,7 +797,7 @@ void VkRenderer::SetupDebug()
 		VK_DEBUG_REPORT_ERROR_BIT_EXT |
 		0;
 
-	instance_layers.push_back("VK_LAYER_LUNARG_standard_validation");
+	instance_layers.push_back("VK_LAYER_KHRONOS_validation");
 	instance_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 }
 

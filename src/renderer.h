@@ -33,17 +33,18 @@ class VkRenderer
 	vk::PipelineLayout pipeline_layout;
 	map<string, vk::Pipeline> pipelines;
 	int buffer_count = 3;
-	vk::Semaphore present_semaphore;
-	vk::Semaphore render_semaphore;
-	vector<vk::Fence> wait_fences;
-	vector<vk::Viewport> viewports;
-	vector<vk::Rect2D> scissors;
+	vk::Semaphore present_semaphore = nullptr;
+	vk::Semaphore render_semaphore = nullptr;
+	vector<vk::Fence> wait_fences = {};
+	vector<vk::Viewport> viewports = {};
+	vector<vk::Rect2D> scissors = {};
 	vk::PipelineRasterizationStateCreateInfo rasterizer = vk::PipelineRasterizationStateCreateInfo();
 	vk::PipelineMultisampleStateCreateInfo multisampler = vk::PipelineMultisampleStateCreateInfo();
 	int render_width, render_height;
-	vk::Rect2D render_area;
-	vma::Allocator gpu_allocator;
-	VkPhysicalDeviceProperties gpu_properties;
+	vk::Rect2D render_area = {};
+	vma::Allocator gpu_allocator = nullptr;
+	VkPhysicalDeviceProperties gpu_properties = {};
+	vk::CommandPool command_pool = nullptr;
 	//Array used for displaying the Vulkan device type to console
 	const char *device_type[5] = {
 		"VK_PHYSICAL_DEVICE_TYPE_OTHER",
@@ -61,6 +62,11 @@ class VkRenderer
 	vk::ShaderModule LoadShaderModule(string filename);
 	// ..Destroys all of the shader modules if no path is given, or destroys the specified shader module;
 	void DestroyShaderModule(string shader = "");
+
+	//Device Commands
+	vk::CommandPool CreateDeviceCommandPool(uint32_t index, vk::CommandPoolCreateFlagBits flags);
+	vector<vk::CommandBuffer> GetCommandBuffers(vk::CommandBufferLevel level, int buffer_count, vk::CommandPool pool = nullptr);
+	void DestroyDeviceCommandPool(vk::CommandPool * pool);
 
 	//Rendering
 	int AcquireNextBuffer(uint32_t &buf_num);
