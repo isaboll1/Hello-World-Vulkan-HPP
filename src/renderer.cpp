@@ -823,26 +823,74 @@ void VkRenderer::DestroyDebug()
 // VERTEX BUFFER CLASS____________________________________________________________
 VertexBuffer::VertexBuffer(vector<Vertex> vertices, VkRenderer * renderer){
 	allocator = &renderer->gpu_allocator;
-	gpu = &renderer->device.get();
-
-	buffer_info = vk::BufferCreateInfo(
-		vk::BufferCreateFlags(), sizeof(vertices[0]) * vertices.size(),
-		vk::BufferUsageFlagBits::eVertexBuffer
-	);
-
+	gpu_properties = renderer->gpu_properties;
+	switch (gpu_properties.deviceType){
+		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:{
+			staging_buffer_info.setSize(sizeof(vertices[0]) * vertices.size());
+			staging_buffer_info.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
+			vma::AllocationCreateInfo staging_alloc_info;
+			staging_alloc_info.setUsage(vma::MemoryUsage::eCpuOnly);
+			tie(staging_buffer, staged_memory) = allocator->createBuffer(staging_buffer_info, staging_alloc_info);
+			if (!staging_buffer){
+				SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Create Buffer Failed");
+				SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Vulkan Error!", " Couldn't create Staging Buffer.\n Make sure information is filled out correctly.", NULL);
+				throw "Staging Buffer Creation Failed!";
+			}
+			break;
+		}	
+		default:break;
+	}
+	buffer_info.setSize(sizeof(vertices[0]) * vertices.size());
+	buffer_info.setUsage(vk::BufferUsageFlagBits::eVertexBuffer);
 	vma::AllocationCreateInfo alloc_info = {};
-	alloc_info.usage = vma::MemoryUsage::eCpuToGpu;
+	switch (gpu_properties.deviceType){
+		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:{
+			buffer_info.usage |= vk::BufferUsageFlagBits::eTransferDst;
+			alloc_info.setUsage(vma::MemoryUsage::eGpuOnly);
+			break;
+		}
+		default: alloc_info.setUsage(vma::MemoryUsage::eCpuToGpu); break;
+	}
 
 	tie(vertex_buffer, buffer_memory) = allocator->createBuffer(buffer_info, alloc_info);
-	
 	if (!vertex_buffer){
 		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Create Buffer Failed");
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Vulkan Error!", " Couldn't create Vertex Buffer.\n Make sure information is filled out correctly.", NULL);
 		throw "Vertex Buffer Creation Failed!";
 	}
-	void * data = allocator->mapMemory(buffer_memory);
-	memcpy(data, vertices.data(), (size_t)buffer_info.size);
-	allocator->unmapMemory(buffer_memory);
+	
+	switch (gpu_properties.deviceType){
+		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:{
+			// Load vertex memory onto staging buffer
+			void * data = allocator->mapMemory(staged_memory);
+			memcpy(data, vertices.data(), (size_t)staging_buffer_info.size);
+			allocator->unmapMemory(staged_memory);
+
+			// Transfer Memory to GPU.
+			vector<vk::CommandBuffer> command_buffers = renderer->GetCommandBuffers(vk::CommandBufferLevel::ePrimary, 1);
+			command_buffers[0].begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+			auto copy_info = vk::BufferCopy();
+			copy_info.setSize(sizeof(vertices[0]) * vertices.size());
+			command_buffers[0].copyBuffer(staging_buffer, vertex_buffer, copy_info);
+			command_buffers[0].end();
+			auto submit_info = vk::SubmitInfo();
+			submit_info.commandBufferCount = command_buffers.size();
+			submit_info.pCommandBuffers = &command_buffers[0];
+
+			renderer->graphics_queue.submit(submit_info, nullptr);
+			renderer->graphics_queue.waitIdle();
+
+			// Cleanup everything used.
+			renderer->device->freeCommandBuffers(renderer->command_pool, command_buffers);
+			allocator->destroyBuffer(staging_buffer, staged_memory);
+		}
+		default:{
+			void * data = allocator->mapMemory(buffer_memory);
+			memcpy(data, vertices.data(), (size_t)buffer_info.size);
+			allocator->unmapMemory(buffer_memory);
+			break;
+		}
+	}
 }
 
 VertexBuffer::~VertexBuffer(){

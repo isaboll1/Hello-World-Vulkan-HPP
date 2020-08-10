@@ -178,11 +178,14 @@ class VertexBuffer{
 		vk::Buffer vertex_buffer;
 		vector<Vertex> verex_info;
 		vma::Allocator * allocator;
-		vk::Device * gpu;
+		VkPhysicalDeviceProperties gpu_properties;
 
 		VertexBuffer(vector<Vertex>, VkRenderer *);
 		~VertexBuffer();
 	private:
-		vk::BufferCreateInfo buffer_info;
+		vk::BufferCreateInfo buffer_info = {};
 		vma::Allocation buffer_memory;
+		vk::BufferCreateInfo staging_buffer_info = {};
+		vk::Buffer staging_buffer = nullptr;
+		vma::Allocation staged_memory = nullptr;
 };
