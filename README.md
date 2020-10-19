@@ -10,4 +10,4 @@ shell script named "VkCompileAndRun.sh" to compile and run the program. If the p
 
 Make sure you have both the Vulkan SDK and SDL2 installed to run this.
 
-Currently, it's recommended to use Vulkan SDK version 1.2.131 when compiling this, or at least those headers.
+Tested against Vulkan-Cpp with the Vulkan SDK version 1.2.154
