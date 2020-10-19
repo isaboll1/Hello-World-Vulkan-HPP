@@ -176,7 +176,7 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 					&color_blend, &pipeline_dynamic_states,        //colorblendState, pipelineDynamicStates,
 					renderer->pipeline_layout, renderer->renderpass,//pipelineLayout, renderPass
 					0, nullptr, -1)                                             //subPass
-		);
+		).value;
 	}
 
 	//FPS Stuff

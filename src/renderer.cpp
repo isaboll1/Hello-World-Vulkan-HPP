@@ -197,7 +197,8 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 				{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, MBOX_CHOICES_NAY, "Next" },
 			};
 			std::string prompt = "Do you want to use this device?\n\n";
-			prompt.append(selectable_devices[current_index].getProperties().deviceName);
+			VkPhysicalDeviceProperties current_gpu_properties = selectable_devices[current_index].getProperties();
+			prompt.append(current_gpu_properties.deviceName);
 #ifdef VK_DEBUG
 			prompt.append("\n\nDebug data\n    Device count  : ").append(std::to_string(physical_devices.size()));
 			prompt.append("\n    Current device: ").append(std::to_string(current_index));
@@ -809,7 +810,7 @@ void VkRenderer::InitDebug()
 		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Could not get debug functions!");
 	}
 
-	result = fvkCreateDebugReportCallbackEXT(instance.get(), &debug_create_info, nullptr, &debug_report);
+	res = fvkCreateDebugReportCallbackEXT(instance.get(), &debug_create_info, nullptr, &debug_report);
 }
 
 void VkRenderer::DestroyDebug()

@@ -23,6 +23,7 @@ using namespace std;
 class VkRenderer
 {
   public:
+  	vk::Result result;
 	vk::Queue graphics_queue;
 	vk::UniqueDevice device;
 	vk::PhysicalDeviceMemoryProperties gpu_memory_info;
@@ -84,8 +85,8 @@ class VkRenderer
 	int required_i_extensions = 1;
 	int required_d_extensions = 2;
 	int supported_d_extensions = 0;
+	VkResult res;
 	map<string, vk::ShaderModule> shader_cache;
-	VkResult result;
 	vk::UniqueInstance instance;
 	VkSurfaceKHR surface;
 	bool present_mode_set = true;
