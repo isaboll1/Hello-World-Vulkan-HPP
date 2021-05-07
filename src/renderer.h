@@ -1,7 +1,6 @@
 #pragma once
 //Vulkan Header
 #define VULKAN_HPP_NO_EXCEPTIONS
-#define NDEBUG
 #include <vulkan/vulkan.hpp>
 
 //VMA
