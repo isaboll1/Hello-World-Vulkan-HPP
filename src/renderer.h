@@ -1,6 +1,9 @@
 #pragma once
 //Vulkan Header
+#define VULKAN_HPP_NO_EXCEPTIONS
+#define NDEBUG
 #include <vulkan/vulkan.hpp>
+
 //VMA
 #include "vk_mem_alloc.hpp"
 //GLM
@@ -82,15 +85,15 @@ class VkRenderer
 
   private:
 	//__Variables__
-	int required_i_extensions = 0;
-	int required_d_extensions = 3;
+	int required_i_extensions = 1;
+	int required_d_extensions = 2;
 	int supported_d_extensions = 0;
 	VkResult res;
 	map<string, vk::ShaderModule> shader_cache;
 	vk::UniqueInstance instance;
 	VkSurfaceKHR surface;
 	bool present_mode_set = true;
-	vk::PresentModeKHR present_mode = vk::PresentModeKHR::eFifo;
+	vk::PresentModeKHR present_mode = vk::PresentModeKHR::eImmediate;
 	vk::SurfaceCapabilitiesKHR surface_caps;
 	vk::SurfaceFormatKHR surface_format;
 	vk::PhysicalDevice gpu;

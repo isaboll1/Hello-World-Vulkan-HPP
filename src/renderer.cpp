@@ -48,7 +48,6 @@ VkRenderer::~VkRenderer()
 	
 }
 
-
 void VkRenderer::GetSDLWindowInfo(SDL_Window * window) //Get the necessary information from the SDL2 window handle for Vulkan support.
 {
 	uint32_t extension_count = 0;
@@ -72,12 +71,14 @@ void VkRenderer::GetExtraInstanceExtensions() //Get the necessary extra instance
 	int extension_check = 0;
 	for (auto extension : extensions){
 		string name = extension.extensionName;
-		/*
-		if (name == "VK_KHR_get_surface_capabilities2"){
-			instance_extensions.push_back("VK_KHR_get_surface_capabilities2");
+
+		if (name == VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME){
 			extension_check += 1;
+			if (extension_check < required_i_extensions){
+				extension_check += 1;
+				instance_extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+			}
 		}
-		*/
 
 	}
 	if (extension_check != required_i_extensions){
@@ -89,7 +90,7 @@ void VkRenderer::GetExtraInstanceExtensions() //Get the necessary extra instance
 
 int VkRenderer::GetExtraDeviceExtensions(vk::PhysicalDevice * gpu) //Get the necessary extra device extensions needed for the renderer.
 {
-	vector<vk::ExtensionProperties> extensions = gpu->enumerateDeviceExtensionProperties();
+	vector<vk::ExtensionProperties> extensions = gpu->enumerateDeviceExtensionProperties().value;
 	int extension_check = 0;
 	for (auto extension : extensions){
 		string extension_name = extension.extensionName;
@@ -109,14 +110,7 @@ int VkRenderer::GetExtraDeviceExtensions(vk::PhysicalDevice * gpu) //Get the nec
 				device_extensions.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 			}	
 		}
-		
-		if (extension_name == VK_EXT_MEMORY_BUDGET_EXTENSION_NAME){
-			extension_check += 1;
-			if (supported_d_extensions < required_d_extensions){
-				supported_d_extensions += 1;
-				device_extensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
-			}
-		}
+
 	}
 	if ((extension_check == supported_d_extensions) && (supported_d_extensions == required_d_extensions)){
 		return 1;
@@ -135,7 +129,7 @@ void VkRenderer::InitInstance() //Initializes the Vulkan Instance
 		"Vulkan SDL2 Application",
 		VK_MAKE_VERSION(0, 2, 0),
 		"Hello Vulkan++",
-		VK_MAKE_VERSION(1, 0, 0)
+		VK_API_VERSION_1_0
 	);
 
 	instance = vk::createInstanceUnique(
@@ -146,7 +140,7 @@ void VkRenderer::InitInstance() //Initializes the Vulkan Instance
 			instance_layers.data(),
 			instance_extensions.size(),
 			instance_extensions.data()
-	));
+	)).value;
 	
 	if (!instance) {
 		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Create Instance Failed");
@@ -173,7 +167,7 @@ void VkRenderer::DestroyInstance()
 void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 {
 	//Get the Physical GPU.
-	auto physical_devices = instance->enumeratePhysicalDevices();
+	auto physical_devices = instance->enumeratePhysicalDevices().value;
 	if (!physical_devices.size()){
 		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Get Physical GPU Failed");
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Vulkan Error!",
@@ -304,7 +298,7 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 		vma::AllocatorCreateFlags(vma::AllocatorCreateFlagBits::eKhrDedicatedAllocation),
 		gpu, 
 		device.get()
-	));
+	)).value;
 }
 
 void VkRenderer::DestroyDeviceContext()
@@ -318,18 +312,18 @@ void VkRenderer::DestroyDeviceContext()
 void VkRenderer::CreateSurface(SDL_Window * window) //Creates a platform agnostic Vulkan Window Surface using SDL2.
 {
 	SDL_Vulkan_CreateSurface(window, instance.get(), &surface);
-	if (!gpu.getSurfaceSupportKHR(graphics_family_index, surface)) {
+	if (!gpu.getSurfaceSupportKHR(graphics_family_index, surface).value) {
 		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Could not not create window surface for Vulkan!");
 	} 
 	
-	surface_caps = gpu.getSurfaceCapabilitiesKHR(surface);
+	surface_caps = gpu.getSurfaceCapabilitiesKHR(surface).value;
 
 	if (surface_caps.currentExtent.width < UINT32_MAX) {
 		render_width = surface_caps.currentExtent.width;
 		render_height = surface_caps.currentExtent.height;
 	}
 
-	vector<vk::SurfaceFormatKHR> formats = gpu.getSurfaceFormatsKHR(surface);	
+	vector<vk::SurfaceFormatKHR> formats = gpu.getSurfaceFormatsKHR(surface).value;	
 
 	if (formats[0].format == vk::Format::eUndefined) {
 		surface_format.format = vk::Format::eR8G8B8A8Unorm;
@@ -350,7 +344,7 @@ void VkRenderer::CreateSwapchain(){ //Create the Swapchain.
 		else if (buffer_count < surface_caps.minImageCount < surface_caps.maxImageCount){buffer_count = surface_caps.minImageCount + 1;}
 	}
 
-	auto present_modes = gpu.getSurfacePresentModesKHR(surface);
+	auto present_modes = gpu.getSurfacePresentModesKHR(surface).value;
 
 	if (!present_mode_set) { present_mode = present_modes[0]; }
 	present_mode_set = true;
@@ -367,7 +361,7 @@ void VkRenderer::CreateSwapchain(){ //Create the Swapchain.
 		vk::SurfaceTransformFlagBitsKHR::eIdentity,
 		vk::CompositeAlphaFlagBitsKHR::eOpaque,
 		present_mode, VK_TRUE, old_swapchain
-	));
+	)).value;
 }
 
 void VkRenderer::DestroySwapchain(){
@@ -375,10 +369,8 @@ void VkRenderer::DestroySwapchain(){
 }
 
 void VkRenderer::ResizeSwapchain(){
-	surface_caps = gpu.getSurfaceCapabilitiesKHR(surface);
+	surface_caps = gpu.getSurfaceCapabilitiesKHR(surface).value;
 	if ((render_height != surface_caps.currentExtent.height) || (render_width != surface_caps.currentExtent.width)) {
-
-
 		
 		device->waitIdle();
 
@@ -404,7 +396,7 @@ void VkRenderer::ResizeSwapchain(){
 }
 
 void VkRenderer::CreateSwapchainImages(){
-	swapchain_buffers = device->getSwapchainImagesKHR(swapchain);
+	swapchain_buffers = device->getSwapchainImagesKHR(swapchain).value;
 	for (auto buffer : swapchain_buffers) {
 		swapchain_buffer_view.push_back(
 			device->createImageView(
@@ -420,7 +412,7 @@ void VkRenderer::CreateSwapchainImages(){
 						0,   //baseArraylayers
 						1)   //layers count
 				)
-			)
+			).value
 		);
 	}
 }
@@ -451,7 +443,7 @@ void VkRenderer::CreateDepthStencilImage(){ //Create the Depth and Stencil Buffe
 	if (depth_buffer_format != vk::Format::eUndefined)
 		stencil_support = true;
 
-	tie(depth_stencil_buffer, depth_buffer_allocation) = gpu_allocator.createImage(vk::ImageCreateInfo(
+	vk::ResultValue<std::pair<vk::Image, vma::Allocation>> result = gpu_allocator.createImage(vk::ImageCreateInfo(
 		vk::ImageCreateFlags(),vk::ImageType::e2D, depth_buffer_format,
 		vk::Extent3D(vk::Extent2D(render_width, render_height), 1), 1,
 		1, vk::SampleCountFlagBits::e1, vk::ImageTiling::eOptimal, 
@@ -462,8 +454,9 @@ void VkRenderer::CreateDepthStencilImage(){ //Create the Depth and Stencil Buffe
 		vma::AllocationCreateInfo(
 			vma::AllocationCreateFlags(vma::AllocationCreateFlagBits::eDedicatedMemory))
 	);
+	tie(depth_stencil_buffer, depth_buffer_allocation) = result.value;
 
-	depth_stencil_buffer_view = device->createImageView(
+	vk::ResultValue<vk::ImageView> result2 = device->createImageView(
 		vk::ImageViewCreateInfo(
 			vk::ImageViewCreateFlags(), depth_stencil_buffer,
 			vk::ImageViewType::e2D, depth_buffer_format,
@@ -472,6 +465,7 @@ void VkRenderer::CreateDepthStencilImage(){ //Create the Depth and Stencil Buffe
 				vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil,
 				0, 1, 0, 1)
 		));
+	depth_stencil_buffer_view = result2.value;
 }
 
 void VkRenderer::DestroyDepthStencilImage(){
@@ -544,7 +538,7 @@ void VkRenderer::CreateRenderpass() {
 			subpasses.data(),
 			subpass_dependencies.size(),
 			subpass_dependencies.data()
-		));
+		)).value;
 }
 
 
@@ -565,7 +559,7 @@ void VkRenderer::CreateFramebuffers() {
 				renderpass, framebuffer_attachments.size(),
 				framebuffer_attachments.data(),
 				render_width, render_height, 1)
-		);
+		).value;
 	}
 
 }
@@ -582,7 +576,7 @@ vk::CommandPool VkRenderer::CreateDeviceCommandPool(uint32_t index, vk::CommandP
 	vk::CommandPoolCreateFlags(flags),
 	index);
 
-	return device->createCommandPool(command_pool_info);
+	return device->createCommandPool(command_pool_info).value;
 }
 
 vector<vk::CommandBuffer> VkRenderer::GetCommandBuffers(vk::CommandBufferLevel level, int buffer_count, vk::CommandPool pool){
@@ -596,7 +590,7 @@ vector<vk::CommandBuffer> VkRenderer::GetCommandBuffers(vk::CommandBufferLevel l
 			pool,
 			level,
 			buffer_count
-		));
+		)).value;
 }
 
 void VkRenderer::DestroyDeviceCommandPool(vk::CommandPool * pool){
@@ -604,11 +598,11 @@ void VkRenderer::DestroyDeviceCommandPool(vk::CommandPool * pool){
 }
 
 void VkRenderer::CreateSynchronizations() {
-	present_semaphore = device->createSemaphore(vk::SemaphoreCreateInfo());
-	render_semaphore = device->createSemaphore(vk::SemaphoreCreateInfo());
+	present_semaphore = device->createSemaphore(vk::SemaphoreCreateInfo()).value;
+	render_semaphore = device->createSemaphore(vk::SemaphoreCreateInfo()).value;
 	wait_fences.resize(buffer_count);
 	for (int i=0; i < buffer_count; i++){
-		wait_fences[i] = device->createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled));
+		wait_fences[i] = device->createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled)).value;
 	}
 }
 
@@ -622,17 +616,27 @@ void VkRenderer::DestroySynchronizations() {
 
 //_______________________________ FUNCTIONS RELATED TO RENDERING _____________________________________________
 int VkRenderer::AcquireNextBuffer(uint32_t &buf_num){
-	vk::Result result = device->acquireNextImageKHR(swapchain, UINT64_MAX, present_semaphore, nullptr, &buf_num);
-	try {
-		if ((result == vk::Result::eSuccess) || (result == vk::Result::eSuboptimalKHR)) {
+	vk::ResultValue<uint32_t> result = device->acquireNextImageKHR(swapchain, UINT64_MAX, present_semaphore, nullptr);
+	int r = 0;
+	switch (result.result){
+		case vk::Result::eSuccess:
+		case vk::Result::eSuboptimalKHR:
+			buf_num = result.value;
 			device->waitForFences(1, &wait_fences[buf_num], VK_TRUE, UINT64_MAX);
 			device->resetFences(1, &wait_fences[buf_num]);
-			return 1;
-		}
-	}catch(const runtime_error& e){
-		ResizeSwapchain();
-	}	
-	return 0;
+			r = 1;
+			break;
+		case vk::Result::eErrorOutOfDateKHR:
+			ResizeSwapchain();
+			break;
+		case vk::Result::eTimeout:
+		case vk::Result::eNotReady:
+			break;	
+		default:
+			cout << "Error happened regarding rendering, possible device lost" << endl;
+			break;
+	}
+	return r;
 }
 
 
@@ -734,7 +738,7 @@ vk::ShaderModule VkRenderer::LoadShaderModule(string filename) {
 				vk::ShaderModuleCreateFlags(),
 				binary.size(),
 				reinterpret_cast<const uint32_t *>(binary.data())
-				));
+				)).value;
 		if (!shader_cache[filename]){
 			throw runtime_error("We couldn't create a shader module");
 		}
@@ -845,7 +849,8 @@ VertexBuffer::VertexBuffer(vector<Vertex> vertices, VkRenderer * renderer){
 			staging_buffer_info.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
 			vma::AllocationCreateInfo staging_alloc_info;
 			staging_alloc_info.setUsage(vma::MemoryUsage::eCpuOnly);
-			tie(staging_buffer, staged_memory) = allocator->createBuffer(staging_buffer_info, staging_alloc_info);
+			vk::ResultValue<pair<vk::Buffer, vma::Allocation>> result = allocator->createBuffer(staging_buffer_info, staging_alloc_info);
+			tie(staging_buffer, staged_memory) = result.value;
 			if (!staging_buffer){
 				SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Create Buffer Failed");
 				SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Vulkan Error!", " Couldn't create Staging Buffer.\n Make sure information is filled out correctly.", NULL);
@@ -867,7 +872,8 @@ VertexBuffer::VertexBuffer(vector<Vertex> vertices, VkRenderer * renderer){
 		default: alloc_info.setUsage(vma::MemoryUsage::eCpuToGpu); break;
 	}
 
-	tie(vertex_buffer, buffer_memory) = allocator->createBuffer(buffer_info, alloc_info);
+	vk::ResultValue<pair<vk::Buffer, vma::Allocation>> result = allocator->createBuffer(buffer_info, alloc_info);
+	tie(vertex_buffer, buffer_memory) = result.value;
 	if (!vertex_buffer){
 		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Create Buffer Failed");
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Vulkan Error!", " Couldn't create Vertex Buffer.\n Make sure information is filled out correctly.", NULL);

@@ -161,7 +161,7 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 		auto pipeline_layout_info = vk::PipelineLayoutCreateInfo();
 		// ...Defaults are nothing, which is perfect as descriptor layouts aren't being used yet
 
-		renderer->pipeline_layout = renderer->device->createPipelineLayout(pipeline_layout_info);
+		renderer->pipeline_layout = renderer->device->createPipelineLayout(pipeline_layout_info).value;
 
 		//Pipeline Object
 		renderer->pipelines["Triangle"] =
@@ -231,8 +231,7 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 
 		 //Rendering Loop
 		 if (renderer->AcquireNextBuffer(i)) { //AcquireNextBuffer: acquires the next command buffer index, used for setting the render commands for the next swapchain.
-		 									  //It also returns wether the buffer is available or not, in which case that determines if the command buffer is filled
-			 printf("%i \n",i);
+		 									  //It also returns wether the buffer is available or not, in which case that determines if the command buffer is filled.
 			 current_time = SDL_GetTicks()/1000;
 
 			 rotator += 0.001;
