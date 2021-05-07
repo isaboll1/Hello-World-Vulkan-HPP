@@ -66,7 +66,7 @@ void VkRenderer::GetSDLWindowInfo(SDL_Window * window) //Get the necessary infor
 void VkRenderer::GetExtraInstanceExtensions() //Get the necessary extra instance extentions needed for the renderer.
 {
 	// everything below this is just for simple testing, VK_KHR_get_surface_capabilities2 isn't used.
-	vector<vk::ExtensionProperties> extensions = vk::enumerateInstanceExtensionProperties();
+	vector<vk::ExtensionProperties> extensions = vk::enumerateInstanceExtensionProperties().value;
 
 	int extension_check = 0;
 	for (auto extension : extensions){
@@ -289,7 +289,7 @@ void VkRenderer::CreateDeviceContext() //Creates the Vulkan Device Context.
 		device_extensions.size(),
 		device_extensions.data(),
 		&gpu_features
-	));
+	)).value;
 	graphics_queue = device->getQueue(graphics_family_index, 0);
 	queue_family_indices.push_back(graphics_family_index);
 
@@ -883,7 +883,7 @@ VertexBuffer::VertexBuffer(vector<Vertex> vertices, VkRenderer * renderer){
 	switch (gpu_properties.deviceType){
 		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:{
 			// Load vertex memory onto staging buffer
-			void * data = allocator->mapMemory(staged_memory);
+			void * data = allocator->mapMemory(staged_memory).value;
 			memcpy(data, vertices.data(), (size_t)staging_buffer_info.size);
 			allocator->unmapMemory(staged_memory);
 
@@ -906,7 +906,7 @@ VertexBuffer::VertexBuffer(vector<Vertex> vertices, VkRenderer * renderer){
 			allocator->destroyBuffer(staging_buffer, staged_memory);
 		}
 		default:{
-			void * data = allocator->mapMemory(buffer_memory);
+			void * data = allocator->mapMemory(buffer_memory).value;
 			//data = vertices.data();
 			memcpy(data, vertices.data(), (size_t)buffer_info.size);
 			allocator->unmapMemory(buffer_memory);
