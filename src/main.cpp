@@ -177,6 +177,9 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 					renderer->pipeline_layout, renderer->renderpass,//pipelineLayout, renderPass
 					0, nullptr, -1)                                             //subPass
 		).value;
+
+		renderer->DestroyShaderModule("shaders/triangle.vert.spv");
+		renderer->DestroyShaderModule("shaders/triangle.frag.spv");
 	}
 
 	//FPS Stuff
@@ -229,6 +232,7 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 		 //Rendering Loop
 		 if (renderer->AcquireNextBuffer(i)) { //AcquireNextBuffer: acquires the next command buffer index, used for setting the render commands for the next swapchain.
 		 									  //It also returns wether the buffer is available or not, in which case that determines if the command buffer is filled
+			 printf("%i \n",i);
 			 current_time = SDL_GetTicks()/1000;
 
 			 rotator += 0.001;
@@ -271,7 +275,6 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 		//and when rendering is finished, it begins to present the rendered image to the corresponding swapchain
 		renderer->BeginRenderPresent(i, command_buffers);
 		 }
-		 
 	 }
 	renderer->device->waitIdle();
 	delete triangle;

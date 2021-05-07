@@ -15,7 +15,8 @@
                 "-o",
                 "${workspaceFolder}/bin/VKEngineDEBUG.x86_64",
                 "-lSDL2",
-                "-lvulkan"
+                "-lvulkan",
+                "-std=c++14",
             ],
             "group": "build",
             "presentation": {

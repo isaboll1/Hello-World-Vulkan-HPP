@@ -68,21 +68,23 @@ void VkRenderer::GetExtraInstanceExtensions() //Get the necessary extra instance
 {
 	// everything below this is just for simple testing, VK_KHR_get_surface_capabilities2 isn't used.
 	vector<vk::ExtensionProperties> extensions = vk::enumerateInstanceExtensionProperties();
-	required_i_extensions = 0;
-	/*
+
 	int extension_check = 0;
 	for (auto extension : extensions){
 		string name = extension.extensionName;
+		/*
 		if (name == "VK_KHR_get_surface_capabilities2"){
 			instance_extensions.push_back("VK_KHR_get_surface_capabilities2");
 			extension_check += 1;
 		}
+		*/
+
 	}
 	if (extension_check != required_i_extensions){
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"Vulkan Error", "Not all required extentions supported by the instance", NULL);
 		throw runtime_error("instance creation error");
 	}
-	*/
+
 }
 
 int VkRenderer::GetExtraDeviceExtensions(vk::PhysicalDevice * gpu) //Get the necessary extra device extensions needed for the renderer.
@@ -91,20 +93,29 @@ int VkRenderer::GetExtraDeviceExtensions(vk::PhysicalDevice * gpu) //Get the nec
 	int extension_check = 0;
 	for (auto extension : extensions){
 		string extension_name = extension.extensionName;
-		if (extension_name == "VK_KHR_get_memory_requirements2"){
+
+		if (extension_name == VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME){
 			extension_check += 1;
 			if (supported_d_extensions < required_d_extensions){
 				supported_d_extensions += 1;
-				device_extensions.push_back("VK_KHR_get_memory_requirements2");
+				device_extensions.push_back(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
 			}	
 		}
 
-		if (extension_name == "VK_KHR_dedicated_allocation"){
+		if (extension_name == VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME){
 			extension_check += 1;
 			if (supported_d_extensions < required_d_extensions){
 				supported_d_extensions += 1;
-				device_extensions.push_back("VK_KHR_dedicated_allocation");
+				device_extensions.push_back(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 			}	
+		}
+		
+		if (extension_name == VK_EXT_MEMORY_BUDGET_EXTENSION_NAME){
+			extension_check += 1;
+			if (supported_d_extensions < required_d_extensions){
+				supported_d_extensions += 1;
+				device_extensions.push_back(VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);
+			}
 		}
 	}
 	if ((extension_check == supported_d_extensions) && (supported_d_extensions == required_d_extensions)){
@@ -366,6 +377,9 @@ void VkRenderer::DestroySwapchain(){
 void VkRenderer::ResizeSwapchain(){
 	surface_caps = gpu.getSurfaceCapabilitiesKHR(surface);
 	if ((render_height != surface_caps.currentExtent.height) || (render_width != surface_caps.currentExtent.width)) {
+
+
+		
 		device->waitIdle();
 
 		render_height = surface_caps.currentExtent.height;
@@ -887,6 +901,7 @@ VertexBuffer::VertexBuffer(vector<Vertex> vertices, VkRenderer * renderer){
 		}
 		default:{
 			void * data = allocator->mapMemory(buffer_memory);
+			//data = vertices.data();
 			memcpy(data, vertices.data(), (size_t)buffer_info.size);
 			allocator->unmapMemory(buffer_memory);
 			break;
