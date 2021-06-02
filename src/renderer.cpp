@@ -388,7 +388,7 @@ void VkRenderer::RecreateSwapchain(){
 
 void VkRenderer::ResizeSwapchain(){
 	surface_caps = gpu.getSurfaceCapabilitiesKHR(surface).value;
-	if ((render_height != surface_caps.currentExtent.height) || (render_width != surface_caps.currentExtent.width)) {
+	if ((render_height != int(surface_caps.currentExtent.height)) || (render_width != int(surface_caps.currentExtent.width))) {
 		device->waitIdle();
 		render_height = (int)surface_caps.currentExtent.height;
 		render_width = (int)surface_caps.currentExtent.width;
@@ -674,7 +674,7 @@ void VkRenderer::DestroyPipelines(){
 int VkRenderer::ResizeViewports(int width, int height, int i) {
 	if (i >= int(viewports.size())){return 0;}
 	if (i <= -1){
-		for (int j = 0; j < viewports.size(); j++) {
+		for (int j = 0; j < int(viewports.size()); j++) {
 			viewports[j].width = width;
 			viewports[j].height = height;
 		}
@@ -688,7 +688,7 @@ int VkRenderer::ResizeViewports(int width, int height, int i) {
 int VkRenderer::ResizeScissors(int width, int height, int i) {
 	if (i >= int(scissors.size())){return 0;}
 	if (i <= -1) {
-		for (int j = 0; j < scissors.size(); j++) {
+		for (int j = 0; j < int(scissors.size()); j++) {
 			scissors[j].extent.width = width;
 			scissors[j].extent.height = height;
 		}
