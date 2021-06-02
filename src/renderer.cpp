@@ -340,8 +340,9 @@ void VkRenderer::DestroySurface(){
 
 void VkRenderer::CreateSwapchain(){ //Create the Swapchain.
 	if (surface_caps.maxImageCount){
-		if (buffer_count > surface_caps.maxImageCount){buffer_count = surface_caps.maxImageCount;}
-		else if (buffer_count < surface_caps.minImageCount < surface_caps.maxImageCount){buffer_count = surface_caps.minImageCount + 1;}
+		if (buffer_count > int(surface_caps.maxImageCount)){buffer_count = int(surface_caps.maxImageCount);}
+		else if (buffer_count < int(surface_caps.minImageCount) && int(surface_caps.minImageCount) < int(surface_caps.maxImageCount)){
+			buffer_count = surface_caps.minImageCount + 1;}
 	}
 
 	auto present_modes = gpu.getSurfacePresentModesKHR(surface).value;
@@ -360,7 +361,7 @@ void VkRenderer::CreateSwapchain(){ //Create the Swapchain.
 		queue_family_indices.size(), queue_family_indices.data(),
 		vk::SurfaceTransformFlagBitsKHR::eIdentity,
 		vk::CompositeAlphaFlagBitsKHR::eOpaque,
-		present_mode, VK_TRUE, old_swapchain
+		present_mode, VK_TRUE, this->old_swapchain
 	)).value;
 }
 
@@ -368,17 +369,8 @@ void VkRenderer::DestroySwapchain(){
 	device->destroySwapchainKHR(swapchain);
 }
 
-void VkRenderer::ResizeSwapchain(){
-	surface_caps = gpu.getSurfaceCapabilitiesKHR(surface).value;
-	if ((render_height != surface_caps.currentExtent.height) || (render_width != surface_caps.currentExtent.width)) {
-		
-		device->waitIdle();
-
-		render_height = surface_caps.currentExtent.height;
-		render_width = surface_caps.currentExtent.width;
-		render_area.setExtent(vk::Extent2D(render_width, render_height));
-
-		old_swapchain = swapchain;
+void VkRenderer::RecreateSwapchain(){
+		this->old_swapchain = this->swapchain;
 		DestroyFramebuffers();
 		DestroyRenderpass();
 		DestroyDepthStencilImage();
@@ -390,8 +382,18 @@ void VkRenderer::ResizeSwapchain(){
 		CreateRenderpass();
 		CreateFramebuffers();
 
-		device->destroySwapchainKHR(old_swapchain);
+		device->destroySwapchainKHR(this->old_swapchain);
 		old_swapchain = nullptr;
+}
+
+void VkRenderer::ResizeSwapchain(){
+	surface_caps = gpu.getSurfaceCapabilitiesKHR(surface).value;
+	if ((render_height != surface_caps.currentExtent.height) || (render_width != surface_caps.currentExtent.width)) {
+		device->waitIdle();
+		render_height = (int)surface_caps.currentExtent.height;
+		render_width = (int)surface_caps.currentExtent.width;
+		RecreateSwapchain();
+		render_area.setExtent(vk::Extent2D(render_width, render_height));
 	}
 }
 
@@ -443,7 +445,7 @@ void VkRenderer::CreateDepthStencilImage(){ //Create the Depth and Stencil Buffe
 	if (depth_buffer_format != vk::Format::eUndefined)
 		stencil_support = true;
 
-	vk::ResultValue<std::pair<vk::Image, vma::Allocation>> result = gpu_allocator.createImage(vk::ImageCreateInfo(
+	tie(depth_stencil_buffer, depth_buffer_allocation) = gpu_allocator.createImage(vk::ImageCreateInfo(
 		vk::ImageCreateFlags(),vk::ImageType::e2D, depth_buffer_format,
 		vk::Extent3D(vk::Extent2D(render_width, render_height), 1), 1,
 		1, vk::SampleCountFlagBits::e1, vk::ImageTiling::eOptimal, 
@@ -453,10 +455,9 @@ void VkRenderer::CreateDepthStencilImage(){ //Create the Depth and Stencil Buffe
 		vk::ImageLayout::eUndefined),
 		vma::AllocationCreateInfo(
 			vma::AllocationCreateFlags(vma::AllocationCreateFlagBits::eDedicatedMemory))
-	);
-	tie(depth_stencil_buffer, depth_buffer_allocation) = result.value;
+	).value;
 
-	vk::ResultValue<vk::ImageView> result2 = device->createImageView(
+	depth_stencil_buffer_view  = device->createImageView(
 		vk::ImageViewCreateInfo(
 			vk::ImageViewCreateFlags(), depth_stencil_buffer,
 			vk::ImageViewType::e2D, depth_buffer_format,
@@ -464,8 +465,8 @@ void VkRenderer::CreateDepthStencilImage(){ //Create the Depth and Stencil Buffe
 			vk::ImageSubresourceRange(
 				vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil,
 				0, 1, 0, 1)
-		));
-	depth_stencil_buffer_view = result2.value;
+		)).value;
+	
 }
 
 void VkRenderer::DestroyDepthStencilImage(){
@@ -617,26 +618,23 @@ void VkRenderer::DestroySynchronizations() {
 //_______________________________ FUNCTIONS RELATED TO RENDERING _____________________________________________
 int VkRenderer::AcquireNextBuffer(uint32_t &buf_num){
 	vk::ResultValue<uint32_t> result = device->acquireNextImageKHR(swapchain, UINT64_MAX, present_semaphore, nullptr);
-	int r = 0;
 	switch (result.result){
 		case vk::Result::eSuccess:
-		case vk::Result::eSuboptimalKHR:
+		case vk::Result::eSuboptimalKHR:			
 			buf_num = result.value;
 			device->waitForFences(1, &wait_fences[buf_num], VK_TRUE, UINT64_MAX);
 			device->resetFences(1, &wait_fences[buf_num]);
-			r = 1;
+			return 1;
 			break;
 		case vk::Result::eErrorOutOfDateKHR:
-			ResizeSwapchain();
+			device->waitIdle();
+			RecreateSwapchain();
 			break;
 		case vk::Result::eTimeout:
 		case vk::Result::eNotReady:
-			break;	
-		default:
-			cout << "Error happened regarding rendering, possible device lost" << endl;
 			break;
 	}
-	return r;
+	return 0;
 }
 
 
@@ -648,20 +646,23 @@ void VkRenderer::BeginRenderPresent(uint32_t &buf_num, vector<vk::CommandBuffer>
 	graphics_queue.submit(submit_info, wait_fences[buf_num]);
 
 	//presentKHR presents from the graphics queue, the finished swapchain that has been rendered to.
-	try{
-		graphics_queue.presentKHR(
-			vk::PresentInfoKHR(
-			1,
-			&render_semaphore,
-			1,
-			&swapchain,
-			&buf_num,
-			nullptr)
-		);
-	} catch (const runtime_error& e){
+	
+	result = graphics_queue.presentKHR(
+		vk::PresentInfoKHR(
+		1,
+		&render_semaphore,
+		1,
+		&swapchain,
+		&buf_num,
+		nullptr)
+	);
+
+	if (result == vk::Result::eSuboptimalKHR || result == vk::Result::eErrorOutOfDateKHR || resize_swapchain){
+		resize_swapchain = false;
 		ResizeSwapchain();
-	}
+	}	
 }
+
 
 void VkRenderer::DestroyPipelines(){
 	device->destroyPipelineLayout(pipeline_layout);
@@ -815,7 +816,7 @@ void VkRenderer::SetupDebug()
 		VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
 		VK_DEBUG_REPORT_ERROR_BIT_EXT |
 		0;
-
+	debug_create_info.pNext = NULL;
 	instance_layers.push_back("VK_LAYER_KHRONOS_validation");
 	instance_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 }
@@ -849,8 +850,8 @@ VertexBuffer::VertexBuffer(vector<Vertex> vertices, VkRenderer * renderer){
 			staging_buffer_info.setUsage(vk::BufferUsageFlagBits::eTransferSrc);
 			vma::AllocationCreateInfo staging_alloc_info;
 			staging_alloc_info.setUsage(vma::MemoryUsage::eCpuOnly);
-			vk::ResultValue<pair<vk::Buffer, vma::Allocation>> result = allocator->createBuffer(staging_buffer_info, staging_alloc_info);
-			tie(staging_buffer, staged_memory) = result.value;
+			tie(staging_buffer, staged_memory) = allocator->createBuffer(staging_buffer_info, staging_alloc_info).value;
+			
 			if (!staging_buffer){
 				SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Create Buffer Failed");
 				SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Vulkan Error!", " Couldn't create Staging Buffer.\n Make sure information is filled out correctly.", NULL);
@@ -872,8 +873,7 @@ VertexBuffer::VertexBuffer(vector<Vertex> vertices, VkRenderer * renderer){
 		default: alloc_info.setUsage(vma::MemoryUsage::eCpuToGpu); break;
 	}
 
-	vk::ResultValue<pair<vk::Buffer, vma::Allocation>> result = allocator->createBuffer(buffer_info, alloc_info);
-	tie(vertex_buffer, buffer_memory) = result.value;
+	tie(vertex_buffer, buffer_memory) = allocator->createBuffer(buffer_info, alloc_info).value;
 	if (!vertex_buffer){
 		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_ERROR, "Create Buffer Failed");
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Vulkan Error!", " Couldn't create Vertex Buffer.\n Make sure information is filled out correctly.", NULL);

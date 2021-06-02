@@ -1,6 +1,7 @@
 #pragma once
 //Vulkan Header
-#define VULKAN_HPP_NO_EXCEPTIONS
+#define VULKAN_HPP_NO_EXCEPTIONS 
+#define VULKAN_HPP_ASSERT_ON_RESULT 
 #include <vulkan/vulkan.hpp>
 
 //VMA
@@ -25,6 +26,7 @@ using namespace std;
 class VkRenderer
 {
   public:
+  	bool resize_swapchain = false;
   	vk::Result result;
 	vk::Queue graphics_queue;
 	vk::UniqueDevice device;
@@ -79,6 +81,7 @@ class VkRenderer
 
 	//Resizing
 	void ResizeSwapchain();
+	void RecreateSwapchain();
 	int ResizeViewports(int width, int height, int i = -1);
 	int ResizeScissors(int width, int height, int i = -1);
 
@@ -87,6 +90,7 @@ class VkRenderer
 	int required_i_extensions = 1;
 	int required_d_extensions = 2;
 	int supported_d_extensions = 0;
+	vk::DispatchLoaderDynamic dl;
 	VkResult res;
 	map<string, vk::ShaderModule> shader_cache;
 	vk::UniqueInstance instance;

@@ -222,7 +222,7 @@ int main(int argc, char ** argv) //Equivalent to WinMain() on Windows, this is t
 
 					renderer->ResizeViewports(draw_w, draw_h);
 					renderer->ResizeScissors(draw_w, draw_h);
-					renderer->ResizeSwapchain();
+					renderer->resize_swapchain = true;
 				}
 			}
 		}
